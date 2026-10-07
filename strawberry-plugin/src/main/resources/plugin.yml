@@ -15,6 +15,9 @@ commands:
   ip:
     description: Show the Strawberry SMP server address
     usage: /ip
+  discord:
+    description: Show the Strawberry SMP Discord
+    usage: /discord
   spawn:
     description: Teleport to the Strawberry SMP spawn
     usage: /spawn
