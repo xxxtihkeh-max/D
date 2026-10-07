@@ -120,6 +120,12 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
             return true;
         }
 
+        if (name.equals("discord")) {
+            sender.sendMessage(Component.text("Join the Strawberry SMP Discord:", NamedTextColor.RED).decorate(TextDecoration.BOLD));
+            sender.sendMessage(Component.text("https://discord.gg/KdV6Prnzz4", NamedTextColor.WHITE));
+            return true;
+        }
+
         if (name.equals("spawn")) {
             if (!(sender instanceof Player player)) {
                 sender.sendMessage("Only players can use /spawn.");
@@ -161,6 +167,7 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
             sender.sendMessage(Component.text("🍓 Strawberry SMP", NamedTextColor.RED).decorate(TextDecoration.BOLD));
             sender.sendMessage(Component.text("/rules - Server rules", NamedTextColor.WHITE));
             sender.sendMessage(Component.text("/ip - Server address", NamedTextColor.WHITE));
+            sender.sendMessage(Component.text("/discord - Join the Discord", NamedTextColor.WHITE));
             sender.sendMessage(Component.text("/spawn - Teleport to spawn", NamedTextColor.WHITE));
             if (sender.hasPermission("strawberry.admin")) {
                 sender.sendMessage(Component.text("/setspawn - Set the server spawn", NamedTextColor.WHITE));
