@@ -1,10 +1,28 @@
 name: StrawberrySMP
-version: 1.0.0
+version: 1.1.0
 main: com.strawberrysmp.StrawberrySMP
 api-version: '26.3'
 author: Strawberry SMP
+
 commands:
   strawberry:
     description: Strawberry SMP main command
     usage: /strawberry
     aliases: [smp]
+  rules:
+    description: Show the Strawberry SMP rules
+    usage: /rules
+  ip:
+    description: Show the Strawberry SMP server address
+    usage: /ip
+  spawn:
+    description: Teleport to the Strawberry SMP spawn
+    usage: /spawn
+  setspawn:
+    description: Set the Strawberry SMP spawn
+    usage: /setspawn
+
+permissions:
+  strawberry.admin:
+    description: Allows use of Strawberry SMP admin commands
+    default: op
