@@ -30,10 +30,13 @@ import org.bukkit.scoreboard.ScoreboardManager;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class StrawberrySMP extends JavaPlugin implements Listener {
 
     private static final String HOME_MENU_TITLE = "Strawberry Homes";
+    private static final String AH_MENU_TITLE = "Strawberry Auction House";
 
     private Location spawnLocation;
     private final Map<UUID, Location> lastLocations = new HashMap<>();
@@ -92,6 +95,74 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         lastMessaged.remove(event.getPlayer().getUniqueId());
     }
 
+
+    private double getBalance(UUID uuid) { return getConfig().getDouble("balances." + uuid, 1000.0); }
+    private void setBalance(UUID uuid, double amount) { getConfig().set("balances." + uuid, amount); saveConfig(); }
+
+    private void openAuctionHouse(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 54, AH_MENU_TITLE);
+        ItemStack filler = homeMenuItem(Material.GRAY_STAINED_GLASS_PANE, " ", " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+        inv.setItem(49, homeMenuItem(Material.GOLD_INGOT, "Your Balance", "$" + String.format(java.util.Locale.US, "%.2f", getBalance(player.getUniqueId()))));
+        inv.setItem(45, homeMenuItem(Material.BOOK, "How to list", "/ah sell <price> while holding an item"));
+        inv.setItem(53, homeMenuItem(Material.BARRIER, "Close", "Close this menu"));
+        List<String> ids = getConfig().getStringList("auction.listings");
+        int slot = 0;
+        for (String id : ids) {
+            if (slot >= 45) break;
+            String path = "auction.items." + id;
+            ItemStack item = getConfig().getItemStack(path + ".item");
+            if (item == null) continue;
+            UUID sellerId;
+            try { sellerId = UUID.fromString(getConfig().getString(path + ".seller", "")); } catch (IllegalArgumentException ex) { continue; }
+            double price = getConfig().getDouble(path + ".price");
+            ItemStack display = item.clone();
+            ItemMeta meta = display.getItemMeta();
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("Price: $" + String.format(java.util.Locale.US, "%.2f", price), NamedTextColor.GREEN));
+            lore.add(Component.text("Seller: " + Bukkit.getOfflinePlayer(sellerId).getName(), NamedTextColor.GRAY));
+            lore.add(Component.text("Click to buy", NamedTextColor.YELLOW));
+            meta.lore(lore);
+            display.setItemMeta(meta);
+            inv.setItem(slot++, display);
+        }
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onAuctionClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player) || !AH_MENU_TITLE.equals(event.getView().getTitle())) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) return;
+        if (slot == 53) { player.closeInventory(); return; }
+        if (slot >= 45) return;
+        List<String> ids = getConfig().getStringList("auction.listings");
+        if (slot >= ids.size()) return;
+        String id = ids.get(slot);
+        String path = "auction.items." + id;
+        ItemStack item = getConfig().getItemStack(path + ".item");
+        if (item == null) { player.sendMessage(Component.text("That listing is no longer available.", NamedTextColor.RED)); openAuctionHouse(player); return; }
+        UUID seller;
+        try { seller = UUID.fromString(getConfig().getString(path + ".seller", "")); } catch (IllegalArgumentException ex) { return; }
+        double price = getConfig().getDouble(path + ".price");
+        if (seller.equals(player.getUniqueId())) { player.sendMessage(Component.text("You cannot buy your own listing.", NamedTextColor.RED)); return; }
+        if (getBalance(player.getUniqueId()) < price) { player.sendMessage(Component.text("You don't have enough money. Use /balance.", NamedTextColor.RED)); return; }
+        if (player.getInventory().firstEmpty() == -1) { player.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return; }
+        setBalance(player.getUniqueId(), getBalance(player.getUniqueId()) - price);
+        setBalance(seller, getBalance(seller) + price);
+        player.getInventory().addItem(item.clone());
+        ids.remove(id); getConfig().set("auction.listings", ids); getConfig().set(path, null); saveConfig();
+        player.sendMessage(Component.text("Purchase complete for $" + String.format(java.util.Locale.US, "%.2f", price) + ".", NamedTextColor.GREEN));
+        Player sellerOnline = Bukkit.getPlayer(seller);
+        if (sellerOnline != null) sellerOnline.sendMessage(Component.text("Your auction item sold for $" + String.format(java.util.Locale.US, "%.2f", price) + ".", NamedTextColor.GREEN));
+        openAuctionHouse(player);
+    }
+
+    @EventHandler
+    public void onAuctionDrag(InventoryDragEvent event) {
+        if (AH_MENU_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    }
 
     @EventHandler
     public void onHomeMenuClick(InventoryClickEvent event) {
@@ -221,6 +292,7 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         sender.sendMessage(Component.text("🍓 Strawberry SMP Commands", NamedTextColor.RED).decorate(TextDecoration.BOLD));
         sender.sendMessage("/help, /rules, /ip, /discord, /spawn");
         sender.sendMessage("/playtime, /ping, /sethome, /home, /back");
+        sender.sendMessage("/ah, /ah sell <price>, /ah cancel <id>, /balance");
         sender.sendMessage("/tpa <player>, /tpaccept, /msg <player> <message>, /reply <message>");
         sender.sendMessage("/fly and /vanish (staff only)");
         if (sender.hasPermission("strawberry.admin")) sender.sendMessage("/setspawn");
@@ -235,6 +307,42 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
             return true;
         }
         if (name.equals("rules")) { sendRules(sender); return true; }
+        if (name.equals("balance")) {
+            Player player = requirePlayer(sender); if (player == null) return true;
+            player.sendMessage(Component.text("Balance: $" + String.format(java.util.Locale.US, "%.2f", getBalance(player.getUniqueId())), NamedTextColor.GREEN)); return true;
+        }
+        if (name.equals("ah")) {
+            Player player = requirePlayer(sender); if (player == null) return true;
+            if (args.length == 0) { openAuctionHouse(player); return true; }
+            if (args[0].equalsIgnoreCase("sell")) {
+                if (args.length != 2) { player.sendMessage("Usage: /ah sell <price> (hold the item you want to list)"); return true; }
+                double price;
+                try { price = Double.parseDouble(args[1]); } catch (NumberFormatException ex) { player.sendMessage(Component.text("Enter a valid price.", NamedTextColor.RED)); return true; }
+                if (!Double.isFinite(price) || price <= 0) { player.sendMessage(Component.text("Price must be greater than zero.", NamedTextColor.RED)); return true; }
+                ItemStack hand = player.getInventory().getItemInMainHand();
+                if (hand.getType().isAir()) { player.sendMessage(Component.text("Hold the item you want to list.", NamedTextColor.RED)); return true; }
+                String id = UUID.randomUUID().toString();
+                String path = "auction.items." + id;
+                getConfig().set(path + ".seller", player.getUniqueId().toString());
+                getConfig().set(path + ".price", price);
+                getConfig().set(path + ".item", hand.clone());
+                List<String> ids = getConfig().getStringList("auction.listings"); ids.add(id); getConfig().set("auction.listings", ids);
+                player.getInventory().setItemInMainHand(null); saveConfig();
+                player.sendMessage(Component.text("Listed item for $" + String.format(java.util.Locale.US, "%.2f", price) + ".", NamedTextColor.GREEN)); return true;
+            }
+            if (args[0].equalsIgnoreCase("cancel")) {
+                if (args.length != 2) { player.sendMessage("Usage: /ah cancel <listing-id>"); return true; }
+                String id = args[1]; String path = "auction.items." + id;
+                if (!player.getUniqueId().toString().equals(getConfig().getString(path + ".seller"))) { player.sendMessage(Component.text("That is not your listing.", NamedTextColor.RED)); return true; }
+                ItemStack item = getConfig().getItemStack(path + ".item");
+                if (item == null) { player.sendMessage(Component.text("Listing item not found.", NamedTextColor.RED)); return true; }
+                Map<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+                if (!leftover.isEmpty()) { player.sendMessage(Component.text("Make room in your inventory first.", NamedTextColor.RED)); return true; }
+                List<String> ids = getConfig().getStringList("auction.listings"); ids.remove(id); getConfig().set("auction.listings", ids); getConfig().set(path, null); saveConfig();
+                player.sendMessage(Component.text("Listing cancelled and item returned.", NamedTextColor.GREEN)); return true;
+            }
+            player.sendMessage("Usage: /ah [sell <price>|cancel <listing-id>]"); return true;
+        }
         if (name.equals("ip")) {
             sender.sendMessage(Component.text("🍓 Strawberry SMP IP", NamedTextColor.RED).decorate(TextDecoration.BOLD));
             sender.sendMessage(Component.text(getConfig().getString("server-ip", "strawberrysmp.falix.gg"), NamedTextColor.WHITE));
