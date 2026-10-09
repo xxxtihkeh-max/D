@@ -15,6 +15,13 @@ commands:
   ah:
     description: Open the player auction house
     usage: /ah [sell <price>|cancel <listing-id>]
+  stats:
+    description: Open your player stats GUI
+    usage: /stats
+    aliases: [profile]
+  rtp:
+    description: Open the random teleport menu
+    usage: /rtp [overworld|nether|end]
   balance:
     description: Check your Strawberry SMP balance
     usage: /balance
