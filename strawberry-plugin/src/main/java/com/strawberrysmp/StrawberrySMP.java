@@ -6,6 +6,12 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.Statistic;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -26,6 +32,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class StrawberrySMP extends JavaPlugin implements Listener {
+
+    private static final String HOME_MENU_TITLE = "Strawberry Homes";
 
     private Location spawnLocation;
     private final Map<UUID, Location> lastLocations = new HashMap<>();
@@ -82,6 +90,79 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
                 .append(Component.text(" left Strawberry SMP.", NamedTextColor.RED)));
         teleportRequests.remove(event.getPlayer().getUniqueId());
         lastMessaged.remove(event.getPlayer().getUniqueId());
+    }
+
+
+    @EventHandler
+    public void onHomeMenuClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!HOME_MENU_TITLE.equals(event.getView().getTitle())) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot < 0 || slot >= event.getView().getTopInventory().getSize()) return;
+        String path = "homes." + player.getUniqueId();
+        if (slot == 4) {
+            Location loc = player.getLocation();
+            getConfig().set(path + ".world", loc.getWorld().getName());
+            getConfig().set(path + ".x", loc.getX());
+            getConfig().set(path + ".y", loc.getY());
+            getConfig().set(path + ".z", loc.getZ());
+            getConfig().set(path + ".yaw", loc.getYaw());
+            getConfig().set(path + ".pitch", loc.getPitch());
+            saveConfig();
+            player.sendMessage(Component.text("Home saved!", NamedTextColor.GREEN));
+            openHomeMenu(player);
+            return;
+        }
+        if (slot == 0 || slot == 9) {
+            String worldName = getConfig().getString(path + ".world");
+            if (worldName == null || Bukkit.getWorld(worldName) == null) {
+                player.sendMessage(Component.text("You haven't set a home yet. Click New Home first.", NamedTextColor.RED));
+                return;
+            }
+            Location home = new Location(Bukkit.getWorld(worldName), getConfig().getDouble(path + ".x"),
+                    getConfig().getDouble(path + ".y"), getConfig().getDouble(path + ".z"),
+                    (float) getConfig().getDouble(path + ".yaw"), (float) getConfig().getDouble(path + ".pitch"));
+            player.closeInventory();
+            player.teleport(home);
+            player.sendMessage(Component.text("Teleported home.", NamedTextColor.GREEN));
+        }
+    }
+
+    @EventHandler
+    public void onHomeMenuDrag(InventoryDragEvent event) {
+        if (HOME_MENU_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    }
+
+    private ItemStack homeMenuItem(Material material, String name, String lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name, NamedTextColor.WHITE));
+        meta.lore(java.util.List.of(Component.text(lore, NamedTextColor.GRAY)));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void openHomeMenu(Player player) {
+        Inventory inventory = Bukkit.createInventory(null, 54, HOME_MENU_TITLE);
+        ItemStack filler = homeMenuItem(Material.GRAY_STAINED_GLASS_PANE, " ", " ");
+        for (int i = 0; i < inventory.getSize(); i++) inventory.setItem(i, filler);
+        inventory.setItem(0, homeMenuItem(Material.RED_BED, "Home 1", "Click to teleport to your saved home"));
+        inventory.setItem(1, homeMenuItem(Material.BLUE_SHULKER_BOX, "Stash", "Your private home category"));
+        inventory.setItem(2, homeMenuItem(Material.WHITE_BED, "Cabin", "Your private home category"));
+        inventory.setItem(3, homeMenuItem(Material.ENDER_EYE, "End", "Your private home category"));
+        inventory.setItem(4, homeMenuItem(Material.PAPER, "New Home", "Click to save your current location"));
+        inventory.setItem(5, homeMenuItem(Material.NAME_TAG, "Team", "Your private home category"));
+        String path = "homes." + player.getUniqueId();
+        if (getConfig().getString(path + ".world") == null) {
+            for (int i = 9; i < inventory.getSize(); i++)
+                inventory.setItem(i, homeMenuItem(Material.PAPER, "New Home", "Click to set your home"));
+        } else {
+            inventory.setItem(9, homeMenuItem(Material.RED_BED, "Home 1", "Click to teleport to your saved home"));
+            for (int i = 10; i < inventory.getSize(); i++)
+                inventory.setItem(i, homeMenuItem(Material.PAPER, "New Home", "Click to replace your saved home"));
+        }
+        player.openInventory(inventory);
     }
 
     @EventHandler
@@ -202,12 +283,8 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         }
         if (name.equals("home")) {
             Player player = requirePlayer(sender); if (player == null) return true;
-            String path = "homes." + player.getUniqueId();
-            String worldName = getConfig().getString(path + ".world");
-            if (worldName == null || Bukkit.getWorld(worldName) == null) { player.sendMessage(Component.text("You haven't set a home yet.", NamedTextColor.RED)); return true; }
-            Location home = new Location(Bukkit.getWorld(worldName), getConfig().getDouble(path + ".x"), getConfig().getDouble(path + ".y"),
-                    getConfig().getDouble(path + ".z"), (float)getConfig().getDouble(path + ".yaw"), (float)getConfig().getDouble(path + ".pitch"));
-            player.teleport(home); player.sendMessage(Component.text("Teleported home.", NamedTextColor.GREEN)); return true;
+            openHomeMenu(player);
+            return true;
         }
         if (name.equals("back")) {
             Player player = requirePlayer(sender); if (player == null) return true;
