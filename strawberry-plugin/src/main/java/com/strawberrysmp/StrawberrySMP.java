@@ -184,7 +184,7 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         }
         if (name.equals("playtime")) {
             Player player = requirePlayer(sender); if (player == null) return true;
-            player.sendMessage(Component.text("Your playtime: " + formatDuration(player.getStatistic(Statistic.PLAY_ONE_MINUTE), NamedTextColor.RED));
+            player.sendMessage(Component.text("Your playtime: " + formatDuration(player.getStatistic(Statistic.PLAY_ONE_MINUTE)), NamedTextColor.RED));
             return true;
         }
         if (name.equals("ping")) {
