@@ -50,6 +50,9 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         saveDefaultConfig();
         loadSpawn();
         Bukkit.getPluginManager().registerEvents(this, this);
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            for (Player online : Bukkit.getOnlinePlayers()) updateScoreboard(online);
+        }, 1L, 40L);
         getLogger().info("Strawberry SMP enabled!");
     }
 
@@ -332,11 +335,18 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         Objective objective = board.registerNewObjective("strawberry", "dummy",
                 Component.text("🍓 STRAWBERRY SMP", NamedTextColor.RED).decorate(TextDecoration.BOLD));
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        objective.getScore(" ").setScore(6);
-        objective.getScore(ChatColor.WHITE + "Player: " + ChatColor.RED + player.getName()).setScore(5);
-        objective.getScore("  ").setScore(4);
-        objective.getScore(ChatColor.WHITE + "Online: " + ChatColor.RED + Bukkit.getOnlinePlayers().size()).setScore(3);
-        objective.getScore("   ").setScore(2);
+
+        objective.getScore(ChatColor.GREEN + "$ " + ChatColor.WHITE + "Money: " + ChatColor.GREEN
+                + String.format(java.util.Locale.US, "%.2f", getBalance(player.getUniqueId()))).setScore(7);
+        objective.getScore(ChatColor.LIGHT_PURPLE + "✦ " + ChatColor.WHITE + "Shards: " + ChatColor.LIGHT_PURPLE + "0").setScore(6);
+        objective.getScore(ChatColor.RED + "⚔ " + ChatColor.WHITE + "Kills: " + ChatColor.RED
+                + player.getStatistic(Statistic.PLAYER_KILLS)).setScore(5);
+        objective.getScore(ChatColor.GOLD + "☠ " + ChatColor.WHITE + "Deaths: " + ChatColor.GOLD
+                + player.getStatistic(Statistic.DEATHS)).setScore(4);
+        objective.getScore(ChatColor.AQUA + "⌁ " + ChatColor.WHITE + "Ping: " + ChatColor.AQUA
+                + player.getPing() + "ms").setScore(3);
+        objective.getScore(ChatColor.YELLOW + "◷ " + ChatColor.WHITE + "Playtime: " + ChatColor.YELLOW
+                + formatDuration(player.getStatistic(Statistic.PLAY_ONE_MINUTE))).setScore(2);
         objective.getScore(ChatColor.GRAY + "strawberrysmp").setScore(1);
         player.setScoreboard(board);
     }
