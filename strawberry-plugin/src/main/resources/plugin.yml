@@ -1,5 +1,5 @@
 name: StrawberrySMP
-version: 1.1.0
+version: 1.2.0
 main: com.strawberrysmp.StrawberrySMP
 api-version: '26.3'
 author: Strawberry SMP
@@ -9,6 +9,9 @@ commands:
     description: Strawberry SMP main command
     usage: /strawberry
     aliases: [smp]
+  help:
+    description: Show Strawberry SMP commands
+    usage: /help
   rules:
     description: Show the Strawberry SMP rules
     usage: /rules
@@ -24,6 +27,39 @@ commands:
   setspawn:
     description: Set the Strawberry SMP spawn
     usage: /setspawn
+  playtime:
+    description: Show your playtime
+    usage: /playtime
+  ping:
+    description: Show your ping
+    usage: /ping
+  sethome:
+    description: Save your home location
+    usage: /sethome
+  home:
+    description: Teleport to your home
+    usage: /home
+  tpa:
+    description: Request to teleport to a player
+    usage: /tpa <player>
+  tpaccept:
+    description: Accept a teleport request
+    usage: /tpaccept
+  back:
+    description: Return to your previous location
+    usage: /back
+  fly:
+    description: Toggle flight (staff only)
+    usage: /fly
+  vanish:
+    description: Toggle vanish (staff only)
+    usage: /vanish
+  msg:
+    description: Send a private message
+    usage: /msg <player> <message>
+  reply:
+    description: Reply to a private message
+    usage: /reply <message>
 
 permissions:
   strawberry.admin:
