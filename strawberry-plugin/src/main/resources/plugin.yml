@@ -12,6 +12,12 @@ commands:
   help:
     description: Show Strawberry SMP commands
     usage: /help
+  ah:
+    description: Open the player auction house
+    usage: /ah [sell <price>|cancel <listing-id>]
+  balance:
+    description: Check your Strawberry SMP balance
+    usage: /balance
   rules:
     description: Show the Strawberry SMP rules
     usage: /rules
