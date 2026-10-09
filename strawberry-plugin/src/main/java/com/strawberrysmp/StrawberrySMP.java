@@ -37,6 +37,8 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
 
     private static final String HOME_MENU_TITLE = "Strawberry Homes";
     private static final String AH_MENU_TITLE = "Strawberry Auction House";
+    private static final String STATS_MENU_TITLE = "Your Strawberry Stats";
+    private static final String RTP_MENU_TITLE = "Random Teleport";
 
     private Location spawnLocation;
     private final Map<UUID, Location> lastLocations = new HashMap<>();
@@ -162,6 +164,86 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
     @EventHandler
     public void onAuctionDrag(InventoryDragEvent event) {
         if (AH_MENU_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    }
+
+
+    private void openStatsMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, STATS_MENU_TITLE);
+        ItemStack filler = homeMenuItem(Material.RED_STAINED_GLASS_PANE, " ", " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+        inv.setItem(10, homeMenuItem(Material.GOLD_INGOT, "Money", "$" + String.format(java.util.Locale.US, "%.2f", getBalance(player.getUniqueId()))));
+        inv.setItem(12, homeMenuItem(Material.CLOCK, "Playtime", formatDuration(player.getStatistic(Statistic.PLAY_ONE_MINUTE))));
+        inv.setItem(14, homeMenuItem(Material.NAME_TAG, "Team", getConfig().getString("teams." + player.getUniqueId(), "Not assigned")));
+        inv.setItem(16, homeMenuItem(Material.FEATHER, "Ping", player.getPing() + " ms"));
+        inv.setItem(22, homeMenuItem(Material.BARRIER, "Close", "Close this menu"));
+        player.openInventory(inv);
+    }
+
+    private void openRtpMenu(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, RTP_MENU_TITLE);
+        ItemStack filler = homeMenuItem(Material.GRAY_STAINED_GLASS_PANE, " ", " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+        inv.setItem(11, homeMenuItem(Material.GRASS_BLOCK, "Overworld RTP", "Teleport to a random safe spot in the Overworld"));
+        inv.setItem(13, homeMenuItem(Material.NETHERRACK, "Nether RTP", "Teleport to a random safe spot in the Nether"));
+        inv.setItem(15, homeMenuItem(Material.END_STONE, "End RTP", "Teleport to a random safe spot in the End"));
+        player.openInventory(inv);
+    }
+
+    private void randomTeleport(Player player, org.bukkit.World.Environment environment) {
+        org.bukkit.World world = null;
+        for (org.bukkit.World candidate : Bukkit.getWorlds()) {
+            if (candidate.getEnvironment() == environment) { world = candidate; break; }
+        }
+        if (world == null) {
+            player.sendMessage(Component.text("That dimension is not available on this server.", NamedTextColor.RED));
+            return;
+        }
+        player.closeInventory();
+        player.sendMessage(Component.text("Finding a safe random location...", NamedTextColor.YELLOW));
+        for (int attempt = 0; attempt < 30; attempt++) {
+            int range = environment == org.bukkit.World.Environment.NETHER ? 1500 : 5000;
+            int x = java.util.concurrent.ThreadLocalRandom.current().nextInt(-range, range + 1);
+            int z = java.util.concurrent.ThreadLocalRandom.current().nextInt(-range, range + 1);
+            int y = world.getHighestBlockYAt(x, z);
+            if (y <= world.getMinHeight() || y + 2 >= world.getMaxHeight()) continue;
+            org.bukkit.block.Block floor = world.getBlockAt(x, y - 1, z);
+            org.bukkit.block.Block feet = world.getBlockAt(x, y, z);
+            org.bukkit.block.Block head = world.getBlockAt(x, y + 1, z);
+            if (!floor.getType().isSolid() || floor.isLiquid() || !feet.isPassable() || !head.isPassable()) continue;
+            String floorName = floor.getType().name();
+            if (floorName.contains("LAVA") || floorName.contains("MAGMA") || floorName.contains("CACTUS") || floorName.contains("FIRE") || floorName.contains("CAMPFIRE")) continue;
+            Location destination = new Location(world, x + 0.5, y, z + 0.5, player.getLocation().getYaw(), player.getLocation().getPitch());
+            player.teleportAsync(destination).thenAccept(success -> {
+                if (success) player.sendMessage(Component.text("Random teleport complete!", NamedTextColor.GREEN));
+                else player.sendMessage(Component.text("Teleport failed. Please try again.", NamedTextColor.RED));
+            });
+            return;
+        }
+        player.sendMessage(Component.text("Couldn't find a safe spot. Please try again.", NamedTextColor.RED));
+    }
+
+    @EventHandler
+    public void onStatsAndRtpMenuClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        String title = event.getView().getTitle();
+        if (STATS_MENU_TITLE.equals(title)) {
+            event.setCancelled(true);
+            if (event.getRawSlot() == 22) player.closeInventory();
+            return;
+        }
+        if (!RTP_MENU_TITLE.equals(title)) return;
+        event.setCancelled(true);
+        switch (event.getRawSlot()) {
+            case 11 -> randomTeleport(player, org.bukkit.World.Environment.NORMAL);
+            case 13 -> randomTeleport(player, org.bukkit.World.Environment.NETHER);
+            case 15 -> randomTeleport(player, org.bukkit.World.Environment.THE_END);
+            default -> { }
+        }
+    }
+
+    @EventHandler
+    public void onStatsAndRtpMenuDrag(InventoryDragEvent event) {
+        if (STATS_MENU_TITLE.equals(event.getView().getTitle()) || RTP_MENU_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
     }
 
     @EventHandler
@@ -293,6 +375,7 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
         sender.sendMessage("/help, /rules, /ip, /discord, /spawn");
         sender.sendMessage("/playtime, /ping, /sethome, /home, /back");
         sender.sendMessage("/ah, /ah sell <price>, /ah cancel <id>, /balance");
+        sender.sendMessage("/stats (money, playtime, team, ping), /rtp");
         sender.sendMessage("/tpa <player>, /tpaccept, /msg <player> <message>, /reply <message>");
         sender.sendMessage("/fly and /vanish (staff only)");
         if (sender.hasPermission("strawberry.admin")) sender.sendMessage("/setspawn");
@@ -307,6 +390,20 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
             return true;
         }
         if (name.equals("rules")) { sendRules(sender); return true; }
+        if (name.equals("stats") || name.equals("profile")) {
+            Player player = requirePlayer(sender); if (player == null) return true;
+            openStatsMenu(player); return true;
+        }
+        if (name.equals("rtp")) {
+            Player player = requirePlayer(sender); if (player == null) return true;
+            if (args.length == 0) { openRtpMenu(player); return true; }
+            String dimension = args[0].toLowerCase();
+            if (dimension.equals("overworld") || dimension.equals("world")) randomTeleport(player, org.bukkit.World.Environment.NORMAL);
+            else if (dimension.equals("nether")) randomTeleport(player, org.bukkit.World.Environment.NETHER);
+            else if (dimension.equals("end")) randomTeleport(player, org.bukkit.World.Environment.THE_END);
+            else { player.sendMessage("Usage: /rtp [overworld|nether|end]"); }
+            return true;
+        }
         if (name.equals("balance")) {
             Player player = requirePlayer(sender); if (player == null) return true;
             player.sendMessage(Component.text("Balance: $" + String.format(java.util.Locale.US, "%.2f", getBalance(player.getUniqueId())), NamedTextColor.GREEN)); return true;
