@@ -98,7 +98,7 @@ public final class StrawberrySMP extends JavaPlugin implements Listener {
     }
 
 
-    private double getBalance(UUID uuid) { return getConfig().getDouble("balances." + uuid, 1000.0); }
+    private double getBalance(UUID uuid) { return getConfig().getDouble("balances." + uuid, 0.0); }
     private void setBalance(UUID uuid, double amount) { getConfig().set("balances." + uuid, amount); saveConfig(); }
 
     private void openAuctionHouse(Player player) {
